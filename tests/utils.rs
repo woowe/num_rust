@@ -15,6 +15,12 @@ fn vec_bin_op_test() {
 }
 
 #[test]
+fn vec_fn_op_threaded_test() {
+    let m = vec![1., 2., 3., 4.];
+    assert!(vec![1., 4., 9., 16.] == vec_fn_op_threaded(&m, &get_chunk_size(&m, &m), &|x| x * x))
+}
+
+#[test]
 fn frobenius_norm_test() {
     assert!((30f64).sqrt() == frobenius_norm(&vec![1.0, 2.0, 3.0, 4.0].to_matrix_2d().unwrap()));
 }
