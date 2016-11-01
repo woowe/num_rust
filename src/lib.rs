@@ -1,5 +1,7 @@
 extern crate rand;
 extern crate matrixmultiply;
+extern crate rayon;
+extern crate num_cpus;
 
 use rand::distributions::{IndependentSample, Range};
 use rand::{random, SeedableRng, StdRng};

@@ -5,7 +5,7 @@ use rand::distributions::{IndependentSample, Range};
 use rand::{random, SeedableRng, StdRng};
 
 use matrixmultiply;
-use self::utils::vec_bin_op;
+use self::utils::{vec_bin_op, get_chunk_size, vec_fn_op_threaded};
 use self::ext::traits::ToMatrix2d;
 
 #[derive(Clone)]
@@ -154,6 +154,34 @@ impl Matrix2d {
             rs: self.rs,
             cs: self.cs,
             matrix: out_vec
+        }
+    }
+
+    pub fn par_apply_fn<F>(&self, f: F) -> Matrix2d
+        where F: Fn(f64) -> f64
+    {
+        // let len = self.matrix.len();
+        // let xs = &self.get_matrix()[..len];
+        //
+        // let mut out_vec = Vec::with_capacity(len);
+        // unsafe {
+        //     out_vec.set_len(len);
+        // }
+        //
+        // {
+        //     let out_slice = &mut out_vec[..len];
+        //
+        //     for i in 0..len {
+        //         out_slice[i] = f(xs[i]);
+        //     }
+        // }
+
+        Matrix2d {
+            n_rows: self.n_rows,
+            n_cols: self.n_cols,
+            rs: self.rs,
+            cs: self.cs,
+            matrix: vec_fn_op_threaded(self.get_matrix(), get_chunk_size(self.get_matrix(), self.get_matrix()), f)
         }
     }
 

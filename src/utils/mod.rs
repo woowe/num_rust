@@ -1,6 +1,9 @@
 use Matrix2d;
 use std::cmp;
 
+use rayon;
+use num_cpus;
+
 pub fn sum_vec(vec: &[f64]) -> f64 {
     let mut mc = vec.clone();
     unrolled_sum(&mut mc)
@@ -63,6 +66,113 @@ pub fn vec_bin_op<F>(u: &[f64], v: &[f64], f: F) -> Vec<f64>
             out_slice[i] = f(xs[i], ys[i]);
         }
     }
+
+    out_vec
+}
+
+pub fn vec_bin_op_mut<F>(u: &[f32], v: &[f32], len: usize, dst: &mut [f32], f: &F) -> ()
+where F: Fn(f32, f32) -> f32 + Send + Sync + 'static
+{
+    let mut x_iter = u.iter();
+    let mut y_iter = v.iter();
+
+    for dst in dst.iter_mut() {
+        *dst = f(*x_iter.next().unwrap(), *y_iter.next().unwrap());
+    }
+}
+
+pub fn get_chunk_size<T>(u: &[T], v: &[T]) -> usize {
+    debug_assert_eq!(u.len(), v.len());
+    let len = cmp::min(u.len(), v.len());
+    let cpus = num_cpus::get();
+    let mut chunk_size = (len as f32 / cpus as f32).floor() as usize;
+    if len < cpus {
+        chunk_size = len;
+    }
+    return chunk_size;
+}
+
+
+pub fn vec_bin_op_split<F>(u: &[f32], v: &[f32], dst: &mut [f32], chunk_size: &usize, f: &F) -> ()
+    where F: Fn(f32, f32) -> f32 + Send + Sync + 'static
+{
+    // debug_assert!(u.len() == v.len());
+    let len = u.len();
+
+    if len < *chunk_size {
+        // println!("LEN: {}", u.len());
+        vec_bin_op_mut(u, v, len, dst, f);
+        return;
+    }
+
+    let mid_point = len / 2;
+    let (x_left, x_right): (&[f32], &[f32]) = u.split_at(mid_point);
+    let (y_left, y_right): (&[f32], &[f32]) = v.split_at(mid_point);
+    let (dst_left, dst_right): (&mut [f32], &mut [f32]) = dst.split_at_mut(mid_point);
+
+    rayon::join(|| vec_bin_op_split(x_left, y_left, dst_left, chunk_size, f),
+             || vec_bin_op_split(x_right, y_right, dst_right, chunk_size, f));
+}
+
+pub fn vec_bin_op_threaded<F>(u: &[f32], v: &[f32], chunk_size: &usize, f: &F) -> Vec<f32>
+    where F: Fn(f32, f32) -> f32 + Send + Sync + 'static
+{
+    let len = u.len();
+    debug_assert!(len == v.len());
+
+    let mut out_vec = Vec::with_capacity(len);
+    unsafe {
+        out_vec.set_len(len);
+    }
+
+    vec_bin_op_split(u, v, &mut out_vec, chunk_size, f);
+
+    return out_vec;
+}
+
+
+pub fn vec_fn_op_mut<F>(u: &[f64], dst: &mut [f64], f: &F) -> ()
+where F: Fn(f64) -> f64 + Send + Sync + 'static
+{
+    let mut x_iter = u.iter();
+
+    for dst in dst.iter_mut() {
+        *dst = f(*x_iter.next().unwrap());
+    }
+}
+
+
+pub fn vec_fn_op_split<F>(u: &[f64], dst: &mut [f64], chunk_size: &usize, f: &F) -> ()
+    where F: Fn(f64) -> f64 + Send + Sync + 'static
+{
+    // debug_assert!(u.len() == v.len());
+    let len = u.len();
+
+    if len < *chunk_size {
+        // println!("LEN: {}", u.len());
+        vec_fn_op_mut(u, dst, f);
+        return;
+    }
+
+    let mid_point = len / 2;
+    let (x_left, x_right): (&[f64], &[f64]) = u.split_at(mid_point);
+    let (dst_left, dst_right): (&mut [f64], &mut [f64]) = dst.split_at_mut(mid_point);
+
+    rayon::join(|| vec_fn_op_split(x_left, dst_left, chunk_size, f),
+             || vec_fn_op_split(x_right, dst_right, chunk_size, f));
+}
+
+pub fn vec_fn_op_threaded<F>(u: &[f64], chunk_size: &usize, f: &F) -> Vec<f64>
+    where F: Fn(f64) -> f64 + Send + Sync + 'static
+{
+    let len = u.len();
+
+    let mut out_vec = Vec::with_capacity(len);
+    unsafe {
+        out_vec.set_len(len);
+    }
+
+    vec_fn_op_split(u, &mut out_vec, chunk_size, f);
 
     out_vec
 }
