@@ -9,7 +9,7 @@ use rand::{random, SeedableRng, StdRng};
 pub mod ext;
 pub mod utils;
 
-use utils::vec_bin_op;
+use utils::{vec_fn_op_threaded, get_chunk_size, vec_bin_op};
 use ext::traits::ToMatrix2d;
 
 #[derive(Clone)]
@@ -158,6 +158,18 @@ impl Matrix2d {
             rs: self.rs,
             cs: self.cs,
             matrix: out_vec
+        }
+    }
+
+    pub fn par_apply_fn<F>(&self, f: &F) -> Matrix2d
+        where F: Sync + Send + 'static + Fn(f64) -> f64
+    {
+        Matrix2d {
+            n_rows: self.n_rows,
+            n_cols: self.n_cols,
+            rs: self.rs,
+            cs: self.cs,
+            matrix: vec_fn_op_threaded(self.get_matrix(), &get_chunk_size(self.get_matrix(), self.get_matrix()), f)
         }
     }
 
