@@ -169,7 +169,7 @@ impl Matrix2d {
             n_cols: self.n_cols,
             rs: self.rs,
             cs: self.cs,
-            matrix: vec_fn_op_threaded(self.get_matrix(), &get_chunk_size(self.get_matrix(), self.get_matrix()), f)
+            matrix: vec_fn_op_threaded(self.get_matrix(), &1024, f)
         }
     }
 
